@@ -3,14 +3,16 @@ services:
     name: inventario-backend
     runtime: node
     plan: free
-    buildCommand: cd backend && npm install && npx prisma generate
-    startCommand: cd backend && npx ts-node -r tsconfig-paths/register src/main.ts
-    initCommand: cd backend && npx prisma migrate deploy && npx ts-node -r tsconfig-paths/register src/init/init-database.ts
+    rootDir: backend
+    buildCommand: 'npm install && npm run build && npx prisma migrate deploy'
+    startCommand: 'npm run start:prod'
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_LwAsFibv0TW5@ep-delicate-credit-ay3vyhzk-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+        fromDatabase:
+          name: neondb
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRATION
@@ -23,3 +25,8 @@ services:
         value: 5242880
       - key: UPLOAD_PATH
         value: ./uploads
+
+databases:
+  - name: neondb
+    databaseName: neondb
+    ipAllowList: []
