@@ -9,9 +9,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: inventario-db
-          property: connectionString
+        value: postgresql://neondb_owner:npg_LwAsFibv0TW5@ep-delicate-credit-ay3vyhzk-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRATION
@@ -24,9 +22,3 @@ services:
         value: 5242880
       - key: UPLOAD_PATH
         value: ./uploads
-
-databases:
-  - name: inventario-db
-    plan: free
-    databaseName: inventario_casa_renta
-    user: postgres
