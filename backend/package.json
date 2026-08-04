@@ -2,9 +2,6 @@
   "name": "inventario-backend",
   "version": "1.0.0",
   "description": "Sistema de inventario para casa renta",
-  "prisma": {
-    "schema": "prisma/schema.prisma"
-  },
   "scripts": {
     "build": "nest build",
     "build:prod": "nest build && cp -r src dist/",
