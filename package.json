@@ -8,6 +8,17 @@
     "start:backend": "cd backend && npm run start:prod",
     "db:generate": "cd backend && npx prisma generate",
     "db:migrate": "cd backend && npx prisma migrate deploy",
-    "db:init": "cd backend && npx ts-node -r tsconfig-paths/register src/init/init-database.ts"
+    "db:init": "cd backend && npx ts-node -r tsconfig-paths/register src/init/init-database.ts",
+    "build": "npm run install:backend && npm run db:migrate && npm run db:generate && npm run build:backend",
+    "start": "npm run start:backend"
+  },
+  "prisma": {
+    "schema": "backend/prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@prisma/client": "5.7.0"
+  },
+  "devDependencies": {
+    "prisma": "5.7.0"
   }
 }
