@@ -4,7 +4,7 @@ import { CompanyService } from './company.service';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { JwtAuthGuard } from '../shared/guards/jwt-auth.guard';
 import { AdminRoleGuard } from '../shared/guards/admin-role.guard';
-import { diskStorage } from 'multer';
+import { diskStorage, FileFilterCallback } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
 import { resolveUploadsRoot } from '../shared/utils/uploads-root';
@@ -28,13 +28,13 @@ export class CompanyController {
   @UseInterceptors(
     FileInterceptor('logo', {
       storage: diskStorage({
-        destination: (req, file, callback) => {
+        destination: (req, file, callback: (error: Error | null, destination: string) => void) => {
           try {
             const dir = join(resolveUploadsRoot(), 'logos');
             fs.mkdirSync(dir, { recursive: true });
             callback(null, dir);
           } catch (e) {
-            callback(e, null);
+            callback(e as Error, null);
           }
         },
         filename: (req, file, callback) => {
@@ -44,9 +44,9 @@ export class CompanyController {
           callback(null, filename);
         },
       }),
-      fileFilter: (req, file, callback) => {
+      fileFilter: (req, file, callback: FileFilterCallback) => {
         if (!file.originalname.match(/\.(jpg|jpeg|png|gif|svg)$/i)) {
-          return callback(new Error('Solo se permiten imágenes'), false);
+          return callback(new Error('Solo se permiten imágenes') as any, false);
         }
         callback(null, true);
       },
@@ -57,7 +57,7 @@ export class CompanyController {
   )
   async updateLogo(
     @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
     @Req() req: any,
   ) {
     console.log('LOGO UPLOAD:', req.method, req.path, 'file:', file ? file.filename : 'no-file', 'content-type:', req.headers['content-type']);
@@ -78,13 +78,13 @@ export class CompanyController {
   @UseInterceptors(
     FileInterceptor('logo', {
       storage: diskStorage({
-        destination: (req, file, callback) => {
+        destination: (req, file, callback: (error: Error | null, destination: string) => void) => {
           try {
             const dir = join(resolveUploadsRoot(), 'logos');
             fs.mkdirSync(dir, { recursive: true });
             callback(null, dir);
           } catch (e) {
-            callback(e, null);
+            callback(e as Error, null);
           }
         },
         filename: (req, file, callback) => {
@@ -94,9 +94,9 @@ export class CompanyController {
           callback(null, filename);
         },
       }),
-      fileFilter: (req, file, callback) => {
+      fileFilter: (req, file, callback: FileFilterCallback) => {
         if (!file.originalname.match(/\.(jpg|jpeg|png|gif|svg)$/i)) {
-          return callback(new Error('Solo se permiten imágenes'), false);
+          return callback(new Error('Solo se permiten imágenes') as any, false);
         }
         callback(null, true);
       },
@@ -107,7 +107,7 @@ export class CompanyController {
   )
   async uploadLogoPost(
     @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
     @Req() req: any,
   ) {
     console.log('LOGO UPLOAD (POST):', req.method, req.path, 'file:', file ? file.filename : 'no-file');

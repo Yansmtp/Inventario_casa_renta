@@ -134,7 +134,7 @@ export class CompanyService {
     });
   }
 
-  async updateLogo(id: number, file: Express.Multer.File) {
+  async updateLogo(id: number, file: any) {
     const company = await this.prisma.company.findUnique({
       where: { id },
     });
