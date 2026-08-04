@@ -3,12 +3,14 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { CompanyService } from './company.service';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { JwtAuthGuard } from '../shared/guards/jwt-auth.guard';
+import { AdminRoleGuard } from '../shared/guards/admin-role.guard';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
+import { resolveUploadsRoot } from '../shared/utils/uploads-root';
 
 @Controller('company')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, AdminRoleGuard)
 export class CompanyController {
   constructor(private readonly companyService: CompanyService) {}
 
@@ -28,7 +30,7 @@ export class CompanyController {
       storage: diskStorage({
         destination: (req, file, callback) => {
           try {
-            const dir = join(__dirname, '..', '..', 'uploads', 'logos');
+            const dir = join(resolveUploadsRoot(), 'logos');
             fs.mkdirSync(dir, { recursive: true });
             callback(null, dir);
           } catch (e) {
@@ -36,9 +38,9 @@ export class CompanyController {
           }
         },
         filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          const filename = `logo-${uniqueSuffix}${ext}`;
+          const ext = (extname(file.originalname) || '.png').toLowerCase();
+          const companyId = Number(req.params?.id) || 1;
+          const filename = `logo-company-${companyId}${ext}`;
           callback(null, filename);
         },
       }),
@@ -78,7 +80,7 @@ export class CompanyController {
       storage: diskStorage({
         destination: (req, file, callback) => {
           try {
-            const dir = join(__dirname, '..', '..', 'uploads', 'logos');
+            const dir = join(resolveUploadsRoot(), 'logos');
             fs.mkdirSync(dir, { recursive: true });
             callback(null, dir);
           } catch (e) {
@@ -86,9 +88,9 @@ export class CompanyController {
           }
         },
         filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          const filename = `logo-${uniqueSuffix}${ext}`;
+          const ext = (extname(file.originalname) || '.png').toLowerCase();
+          const companyId = Number(req.params?.id) || 1;
+          const filename = `logo-company-${companyId}${ext}`;
           callback(null, filename);
         },
       }),

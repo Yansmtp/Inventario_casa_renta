@@ -1,6 +1,7 @@
+// Desarrollo local: siempre usa backend en localhost:3000 a menos que window.API_BASE_URL se sobreescriba manualmente.
 const API_BASE_URL = (typeof window !== 'undefined' && window.API_BASE_URL)
   ? window.API_BASE_URL
-  : `${window.location.protocol}//${window.location.hostname}:3000/api`;
+  : 'http://localhost:3000/api';
 let currentUser = null;
 let currentPage = 1;
 
@@ -185,6 +186,15 @@ function hideLoading() {
     }
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function formatDate(dateString) {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -250,14 +260,77 @@ function formatNumber(number) {
     }).format(number);
 }
 
+const COMPACT_LIST_MEDIA = typeof window !== 'undefined'
+    ? window.matchMedia('(max-width: 991px)')
+    : null;
+
+function isCompactListView() {
+    return COMPACT_LIST_MEDIA ? COMPACT_LIST_MEDIA.matches : false;
+}
+
+/** Reportes: scroll horizontal en pantallas pequeñas (sin tarjetas por campo). */
+function refreshResponsiveTables(root) {
+    const scope = root && root.querySelectorAll ? root : document;
+    if (!scope.querySelectorAll) return;
+
+    scope.querySelectorAll(
+        '.movements-report-output .table, #report-content .table, #client-report-result .table, #movement-report-result .table'
+    ).forEach((table) => {
+        table.classList.remove('table-mobile-stack');
+        const wrap = table.closest('.table-responsive');
+        if (wrap) wrap.classList.add('table-report-scroll');
+    });
+}
+
+function initCompactListResponsive() {
+    if (window.__compactListResponsiveInit || !COMPACT_LIST_MEDIA) return;
+    window.__compactListResponsiveInit = true;
+
+    let timer = null;
+    const rerunVisibleLists = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            const productsSection = document.getElementById('products');
+            if (productsSection?.style.display !== 'none' && typeof renderProductsTable === 'function') {
+                renderProductsTable();
+            }
+            const movementsSection = document.getElementById('movements');
+            if (movementsSection?.style.display !== 'none' && typeof renderMovementsTable === 'function') {
+                renderMovementsTable();
+            }
+            const clientsSection = document.getElementById('clients');
+            if (clientsSection?.style.display !== 'none' && typeof renderClientsTable === 'function') {
+                renderClientsTable();
+            }
+            const costCentersSection = document.getElementById('cost-centers');
+            if (costCentersSection?.style.display !== 'none' && typeof renderCostCentersTable === 'function') {
+                renderCostCentersTable();
+            }
+            const dashboardSection = document.getElementById('dashboard');
+            if (dashboardSection?.style.display !== 'none' && typeof loadRecentMovements === 'function') {
+                loadRecentMovements();
+            }
+            const companySection = document.getElementById('company');
+            if (companySection?.style.display !== 'none' && typeof loadUsers === 'function') {
+                loadUsers();
+            }
+        }, 220);
+    };
+
+    COMPACT_LIST_MEDIA.addEventListener('change', rerunVisibleLists);
+    window.addEventListener('resize', rerunVisibleLists);
+}
+
 function toggleNavbar() {
     const navbarMenu = document.getElementById('navbar-menu');
     navbarMenu.classList.toggle('show');
+    document.body.classList.toggle('navbar-open', navbarMenu.classList.contains('show'));
 }
 
 function closeNavbar() {
     const navbarMenu = document.getElementById('navbar-menu');
     navbarMenu.classList.remove('show');
+    document.body.classList.remove('navbar-open');
 }
 
 // Marcar item activo del menú
@@ -309,6 +382,9 @@ window.setActiveMenu = setActiveMenu;
 window.fetchWithAuth = fetchWithAuth;
 window.parseNumberSafe = parseNumberSafe;
 window.isAdmin = isAdmin;
+window.refreshResponsiveTables = refreshResponsiveTables;
+window.isCompactListView = isCompactListView;
+window.initCompactListResponsive = initCompactListResponsive;
 
 // Utilidades de modal
 function showModal(modalId) {
@@ -321,7 +397,7 @@ function showModal(modalId) {
     }
 
     overlay.style.display = 'block';
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 }
 

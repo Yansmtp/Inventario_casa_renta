@@ -32,6 +32,14 @@ export class CreateMovementDto {
   @IsOptional()
   currencyCode?: string;
 
+  @IsNumber()
+  @IsOptional()
+  rateAtTransaction?: number;
+
+  @IsString()
+  @IsOptional()
+  adminPassword?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => MovementDetailDto)

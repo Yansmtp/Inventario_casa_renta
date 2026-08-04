@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../shared/prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
 import { CurrenciesService } from '../currencies/currencies.service';
@@ -7,8 +8,11 @@ import { MovementDetailDto } from './dto/movement-detail.dto';
 import { MovementType, Prisma } from '@prisma/client';
 
 // Helper para convertir Decimal a number
-function toNum(value: Prisma.Decimal | number): number {
-  return value instanceof Prisma.Decimal ? value.toNumber() : value;
+function toNum(value: Prisma.Decimal | number | string | null | undefined): number {
+  if (value == null || value === '') return 0;
+  if (value instanceof Prisma.Decimal) return value.toNumber();
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 @Injectable()
@@ -18,6 +22,35 @@ export class MovementsService {
     private productsService: ProductsService,
     private currenciesService: CurrenciesService,
   ) {}
+
+  private formatYmd(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}${m}${d}`;
+  }
+
+  private async generateDocumentNumber(
+    tx: any,
+    type: MovementType,
+    date: Date,
+  ): Promise<string> {
+    const prefix = type === MovementType.ENTRADA ? 'ENT' : 'SAL';
+    const ymd = this.formatYmd(date);
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+
+    const count = await tx.movement.count({
+      where: {
+        type,
+        date: { gte: start, lte: end },
+      },
+    });
+
+    return `${prefix}-${ymd}-${String(count + 1).padStart(4, '0')}`;
+  }
 
   // ---------------------------
   // Métodos requeridos por el controller
@@ -57,6 +90,39 @@ export class MovementsService {
     }
 
     return m;
+  }
+
+  private isProductFromLogosMission(product: { name?: string | null; description?: string | null }): boolean {
+    const text = `${product.name || ''} ${product.description || ''}`.toLowerCase();
+    return /\b(logos?|logotipo|misi[oó]n|donaci[oó]n|donativo|ayuda)\b/.test(text);
+  }
+
+  private isHelpCostCenter(costCenter: { name?: string | null; description?: string | null }): boolean {
+    const text = `${costCenter.name || ''} ${costCenter.description || ''}`.toLowerCase();
+    return /\bayuda\b/.test(text);
+  }
+
+  private async validateAdminPassword(password: string) {
+    if (!password || !password.trim()) {
+      throw new BadRequestException('Se requiere contraseña de administrador para forzar esta salida');
+    }
+
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { password: true },
+    });
+
+    if (!admins || admins.length === 0) {
+      throw new BadRequestException('No hay un administrador configurado para validar la contraseña');
+    }
+
+    const validResults = await Promise.all(
+      admins.map(admin => bcrypt.compare(password, admin.password)),
+    );
+
+    if (!validResults.some(Boolean)) {
+      throw new BadRequestException('Contraseña de administrador incorrecta');
+    }
   }
 
   async findAll(
@@ -119,6 +185,7 @@ export class MovementsService {
       include: {
         client: true,
         costCenter: true,
+        user: { select: { id: true, name: true, email: true } },
         details: { include: { product: true } },
       },
     });
@@ -147,21 +214,44 @@ export class MovementsService {
       let currencyCode = createMovementDto.currencyCode
         || (await this.currenciesService.getAll()).find(c => c.isDefault)?.code
         || 'USD';
+      currencyCode = String(currencyCode).toUpperCase();
       let rateAtTransaction = 1;
 
       if (createMovementDto.type === MovementType.SALIDA) {
         currencyCode = 'USD';
         rateAtTransaction = 1;
       } else {
-        const currencyEntry = await this.currenciesService.get(currencyCode);
-        rateAtTransaction = currencyEntry ? currencyEntry.rate : 1;
+        if (currencyCode === 'EUR') {
+          throw new BadRequestException('EUR está deshabilitada temporalmente');
+        }
+        const providedRate = Number((createMovementDto as any).rateAtTransaction);
+        if (Number.isFinite(providedRate) && providedRate > 0) {
+          rateAtTransaction = providedRate;
+        } else {
+          const currencyEntry = await this.currenciesService.get(currencyCode);
+          rateAtTransaction = currencyEntry ? currencyEntry.rate : 1;
+        }
       }
+
+      const movementDate = createMovementDto.date || new Date();
+      const documentNumber = (createMovementDto.documentNumber || '').trim()
+        || await this.generateDocumentNumber(tx, createMovementDto.type, movementDate);
+
+      const costCenter = createMovementDto.costCenterId
+        ? await tx.costCenter.findUnique({ where: { id: createMovementDto.costCenterId } })
+        : null;
+      if (createMovementDto.costCenterId && !costCenter) {
+        throw new NotFoundException('Centro de costo no encontrado');
+      }
+      const isHelpCenter = createMovementDto.type === MovementType.SALIDA && costCenter
+        ? this.isHelpCostCenter(costCenter)
+        : false;
 
       const movement = await tx.movement.create({
         data: {
           type: createMovementDto.type,
-          date: createMovementDto.date || new Date(),
-          documentNumber: createMovementDto.documentNumber,
+          date: movementDate,
+          documentNumber,
           description: createMovementDto.description,
           clientId: createMovementDto.clientId,
           costCenterId: createMovementDto.costCenterId,
@@ -181,6 +271,15 @@ export class MovementsService {
 
         if (!product) {
           throw new NotFoundException(`Producto con ID ${detailDto.productId} no encontrado`);
+        }
+
+        if (isHelpCenter && !this.isProductFromLogosMission(product)) {
+          if (!createMovementDto.adminPassword) {
+            throw new BadRequestException(
+              `El producto ${product.name} no proviene de Logos Misión y requiere contraseña de administrador para forzar la salida.`
+            );
+          }
+          await this.validateAdminPassword(createMovementDto.adminPassword);
         }
 
         // Validar stock para salidas
@@ -274,14 +373,28 @@ export class MovementsService {
     };
   }
 
-  async getMovementsReport(startDate: Date, endDate: Date, targetCurrency: string = 'USD') {
-    const movements = await this.prisma.movement.findMany({
-      where: {
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
+  async getMovementsReport(
+    startDate: Date,
+    endDate: Date,
+    targetCurrency: string = 'USD',
+    type?: MovementType,
+    clientId?: number,
+    costCenterId?: number,
+  ) {
+    const where: any = {
+      date: {
+        gte: startDate,
+        lte: endDate,
       },
+    };
+    if (type === MovementType.ENTRADA || type === MovementType.SALIDA) {
+      where.type = type;
+    }
+    if (clientId) where.clientId = clientId;
+    if (costCenterId) where.costCenterId = costCenterId;
+
+    const movements = await this.prisma.movement.findMany({
+      where,
       include: {
         client: true,
         costCenter: true,
@@ -301,6 +414,19 @@ export class MovementsService {
       totalExitsValue: 0,
       products: {} as Record<number, any>,
       currency: targetCurrency,
+      exchangeRateInfo: null as any,
+      filters: {
+        type: type || null,
+        clientId: clientId || null,
+        costCenterId: costCenterId || null,
+      },
+    };
+
+    const cupUsd = await this.currenciesService.getRateAt('CUP', endDate || new Date());
+    summary.exchangeRateInfo = {
+      at: endDate || new Date(),
+      usdToCup: cupUsd > 0 ? (1 / cupUsd) : 0,
+      cupToUsd: cupUsd,
     };
 
     const rateCache = new Map<string, number>();
@@ -350,10 +476,10 @@ export class MovementsService {
         }
 
         if (isEntry) {
-          summary.products[productId].entries += detail.quantity;
+          summary.products[productId].entries += toNum(detail.quantity);
           summary.products[productId].entriesValue += valueBase;
         } else {
-          summary.products[productId].exits += detail.quantity;
+          summary.products[productId].exits += toNum(detail.quantity);
           summary.products[productId].exitsValue += valueBase;
         }
       }
@@ -407,5 +533,81 @@ export class MovementsService {
     };
 
     return voucher;
+  }
+
+  async remove(id: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const movement = await tx.movement.findUnique({
+        where: { id },
+        include: { details: true },
+      });
+
+      if (!movement) {
+        throw new NotFoundException('Movimiento no encontrado');
+      }
+
+      const affectedProductIds = new Set<number>();
+
+      for (const detail of movement.details) {
+        affectedProductIds.add(detail.productId);
+        const product = await tx.product.findUnique({ where: { id: detail.productId } });
+        if (!product) continue;
+
+        const qty = toNum(detail.quantity);
+        if (movement.type === MovementType.ENTRADA) {
+          const newStock = toNum(product.stock) - qty;
+          if (newStock < 0) {
+            throw new BadRequestException('Eliminación inválida: stock resultaría negativo');
+          }
+          await tx.product.update({
+            where: { id: detail.productId },
+            data: { stock: { decrement: qty } },
+          });
+        } else {
+          await tx.product.update({
+            where: { id: detail.productId },
+            data: { stock: { increment: qty } },
+          });
+        }
+      }
+
+      await tx.movementDetail.deleteMany({ where: { movementId: id } });
+      await tx.movement.delete({ where: { id } });
+
+      // Recalcular costo promedio ponderado para productos afectados (solo entradas)
+      if (movement.type === MovementType.ENTRADA && affectedProductIds.size > 0) {
+        for (const productId of affectedProductIds) {
+          const entries = await tx.movementDetail.findMany({
+            where: {
+              productId,
+              movement: { type: MovementType.ENTRADA },
+            },
+            include: {
+              movement: { select: { currencyCode: true, rateAtTransaction: true } },
+            },
+            orderBy: { movement: { date: 'asc' } },
+          });
+
+          let totalQty = 0;
+          let totalCostUsd = 0;
+          for (const entry of entries) {
+            const qty = toNum(entry.quantity);
+            const unitCost = toNum(entry.unitCost);
+            const rate = toNum(entry.movement?.rateAtTransaction || 1);
+            const unitCostUsd = entry.movement?.currencyCode === 'USD' ? unitCost : unitCost * rate;
+            totalQty += qty;
+            totalCostUsd += qty * unitCostUsd;
+          }
+
+          const newCost = totalQty > 0 ? totalCostUsd / totalQty : 0;
+          await tx.product.update({
+            where: { id: productId },
+            data: { unitCost: newCost },
+          });
+        }
+      }
+
+      return { ok: true };
+    });
   }
 }

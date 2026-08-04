@@ -7,24 +7,47 @@ import { UpdateClientDto } from './dto/update-client.dto';
 export class ClientsService {
   constructor(private prisma: PrismaService) {}
 
+  private async generateNextCode(prefix: string): Promise<string> {
+    const latest = await this.prisma.client.findFirst({
+      where: { code: { startsWith: prefix } },
+      orderBy: { id: 'desc' },
+      select: { code: true },
+    });
+
+    const parsed = latest?.code ? Number(latest.code.replace(prefix, '')) : 0;
+    let next = Number.isFinite(parsed) ? parsed + 1 : 1;
+    let candidate = `${prefix}${String(next).padStart(5, '0')}`;
+
+    while (await this.prisma.client.findUnique({ where: { code: candidate } })) {
+      next += 1;
+      candidate = `${prefix}${String(next).padStart(5, '0')}`;
+    }
+
+    return candidate;
+  }
+
   async create(createClientDto: CreateClientDto) {
-    // Verificar si el código ya existe
+    const code = (createClientDto.code || '').trim() || await this.generateNextCode('CLI-');
+
     const existingClient = await this.prisma.client.findUnique({
-      where: { code: createClientDto.code },
+      where: { code },
     });
 
     if (existingClient) {
-      throw new BadRequestException('El código del cliente ya existe');
+      throw new BadRequestException('El codigo del cliente ya existe');
     }
 
     return this.prisma.client.create({
-      data: createClientDto,
+      data: {
+        ...createClientDto,
+        code,
+      },
     });
   }
 
   async findAll(page: number = 1, limit: number = 10, search: string = '', activeOnly: boolean = true) {
     const skip = (page - 1) * limit;
-    
+
     const where: any = {
       OR: [
         { code: { contains: search, mode: 'insensitive' } },
@@ -96,7 +119,7 @@ export class ClientsService {
   }
 
   async update(id: number, updateClientDto: UpdateClientDto) {
-    await this.findOne(id); // Verificar que existe
+    await this.findOne(id);
 
     return this.prisma.client.update({
       where: { id },
@@ -105,7 +128,7 @@ export class ClientsService {
   }
 
   async remove(id: number) {
-    await this.findOne(id); // Verificar que existe
+    await this.findOne(id);
 
     return this.prisma.client.update({
       where: { id },

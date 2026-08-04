@@ -12,22 +12,6 @@ enum MovementType {
   SALIDA
 }
 
-enum UnitType {
-  UNIDAD
-  KILOGRAMO
-  GRAMO
-  LIBRA
-  ONZA
-  LITRO
-  MILILITRO
-  GALON
-  CAJA
-  POMO
-  PAR
-  METRO
-  CENTIMETRO
-}
-
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
@@ -47,7 +31,7 @@ model Product {
   code        String   @unique
   name        String
   description String?
-  unit        UnitType
+  unit        String
   unitCost    Decimal  @default(0)
   stock       Decimal  @default(0)
   minStock    Decimal  @default(0)
