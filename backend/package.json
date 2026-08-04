@@ -20,7 +20,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:backup": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\db-backup.ps1",
-    "db:reset": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\db-reset.ps1 -Force"
+    "db:reset": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\db-reset.ps1 -Force",
+    "db:init": "ts-node src/init/init-database.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

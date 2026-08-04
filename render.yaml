@@ -5,6 +5,7 @@ services:
     plan: free
     buildCommand: cd backend && npm install
     startCommand: cd backend && npx ts-node -r tsconfig-paths/register src/main.ts
+    initCommand: cd backend && npx ts-node -r tsconfig-paths/register src/init/init-database.ts
     envVars:
       - key: NODE_ENV
         value: production
