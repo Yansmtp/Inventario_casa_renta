@@ -15,10 +15,16 @@ import { AdminRoleGuard } from '../shared/guards/admin-role.guard';
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET'),
-        signOptions: { expiresIn: configService.get('JWT_EXPIRATION', '24h') },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const secret = configService.get('JWT_SECRET');
+        if (!secret) {
+          throw new Error('JWT_SECRET is not defined in the environment variables');
+        }
+        return {
+          secret: secret,
+          signOptions: { expiresIn: configService.get('JWT_EXPIRATION', '24h') },
+        };
+      },
       inject: [ConfigService],
     }),
   ],
