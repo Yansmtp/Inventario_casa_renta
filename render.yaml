@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: inventario-backend
+    runtime: node
+    plan: free
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inventario-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION
+        value: 24h
+      - key: PORT
+        value: 3000
+      - key: FRONTEND_URL
+        value: https://inventario-casa-renta.vercel.app
+      - key: MAX_FILE_SIZE
+        value: 5242880
+      - key: UPLOAD_PATH
+        value: ./uploads
+
+databases:
+  - name: inventario-db
+    plan: free
+    databaseName: inventario_casa_renta
+    user: postgres
