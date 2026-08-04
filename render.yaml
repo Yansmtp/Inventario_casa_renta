@@ -3,9 +3,9 @@ services:
     name: inventario-backend
     runtime: node
     plan: free
-    buildCommand: cd backend && npm install && npx prisma generate && npm run build
-    startCommand: cd backend && npx ts-node -r tsconfig-paths/register src/main.ts
-    initCommand: cd backend && npx prisma migrate deploy && npx ts-node -r tsconfig-paths/register src/init/init-database.ts
+    buildCommand: npm run install:backend && npm run db:generate && npm run build:backend
+    startCommand: npm run start:backend
+    initCommand: npm run db:migrate && npm run db:init
     envVars:
       - key: NODE_ENV
         value: production
