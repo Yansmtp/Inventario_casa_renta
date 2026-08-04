@@ -6,8 +6,8 @@
     "install:backend": "cd backend && npm install",
     "build:backend": "cd backend && npm run build",
     "start:backend": "cd backend && npm run start:prod",
-    "db:generate": "cd backend && npx prisma generate",
-    "db:migrate": "cd backend && npx prisma migrate deploy",
+    "db:generate": "cd backend && npx prisma generate --schema=./prisma/schema.prisma",
+    "db:migrate": "cd backend && npx prisma migrate deploy --schema=./prisma/schema.prisma",
     "db:init": "cd backend && npx ts-node -r tsconfig-paths/register src/init/init-database.ts"
   }
 }
