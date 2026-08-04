@@ -59,8 +59,10 @@ async function bootstrap() {
     console.warn('crossOriginResourcePolicy no disponible en helmet:', e);
   }
 
+  const frontendUrl = configService.get('FRONTEND_URL');
+
   app.enableCors({
-    origin: true,
+    origin: frontendUrl,
     credentials: true,
     // Incluir HEAD y PATCH para que las peticiones preflight permitan métodos PATCH
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -84,8 +86,10 @@ async function bootstrap() {
     // Permitir uso cross-origin de recursos estáticos (para <img>, <link>, etc.)
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     // También permitir CORS en caso de que el navegador lo requiera para ciertas solicitudes
-    res.setHeader('Access-Control-Allow-Origin', configService.get('FRONTEND_URL', 'http://localhost:8080'));
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (frontendUrl) {
+      res.setHeader('Access-Control-Allow-Origin', frontendUrl);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
     next();
   });
 

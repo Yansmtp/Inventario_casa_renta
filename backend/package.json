@@ -19,8 +19,6 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "db:backup": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\db-backup.ps1",
-    "db:reset": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\db-reset.ps1 -Force",
     "db:init": "ts-node src/init/init-database.ts"
   },
   "dependencies": {
@@ -32,7 +30,6 @@
     "@nestjs/passport": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/serve-static": "^4.0.2",
-    "@nestjs/cli": "^10.0.0",
     "@prisma/client": "^5.0.0",
     "bcrypt": "^5.1.0",
     "bcryptjs": "^3.0.3",
@@ -50,6 +47,7 @@
     "rxjs": "^7.8.0"
   },
   "devDependencies": {
+    "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
     "@types/bcrypt": "^5.0.0",

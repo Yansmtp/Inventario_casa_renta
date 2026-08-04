@@ -3,14 +3,14 @@ services:
     name: inventario-backend
     runtime: node
     plan: free
-    buildCommand: npm run install:backend && npm run db:generate && npm run build:backend
-    startCommand: npm run start:backend
-    initCommand: npm run db:migrate && npm run db:init
+    rootDir: backend
+    buildCommand: npm install && npx prisma migrate deploy && npx prisma generate && npm run build
+    startCommand: npm run start:prod
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_LwAsFibv0TW5@ep-delicate-credit-ay3vyhzk-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - fromSecret: POSTGRES_URL
+        key: DATABASE_URL
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRATION
@@ -22,4 +22,9 @@ services:
       - key: MAX_FILE_SIZE
         value: 5242880
       - key: UPLOAD_PATH
-        value: ./uploads
+        value: /data/uploads
+      - key: MAINTENANCE_AUTO_BACKUP
+        value: false
+    disks:
+      - name: data
+        mountPath: /data
