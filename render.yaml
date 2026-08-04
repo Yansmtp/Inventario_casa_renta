@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm install && npx prisma generate
+    buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npx ts-node -r tsconfig-paths/register src/main.ts
     initCommand: npx prisma migrate deploy && npx ts-node -r tsconfig-paths/register src/init/init-database.ts
     envVars:
