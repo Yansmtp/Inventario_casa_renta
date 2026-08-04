@@ -4,15 +4,14 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: 'npm install && npm run build && npx prisma migrate deploy'
-    startCommand: 'npm run start:prod'
+    buildCommand: npm install && npx prisma generate
+    startCommand: npx ts-node -r tsconfig-paths/register src/main.ts
+    initCommand: npx prisma migrate deploy && npx ts-node -r tsconfig-paths/register src/init/init-database.ts
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: neondb
-          property: connectionString
+        value: postgresql://neondb_owner:npg_LwAsFibv0TW5@ep-delicate-credit-ay3vyhzk-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRATION
@@ -25,8 +24,3 @@ services:
         value: 5242880
       - key: UPLOAD_PATH
         value: ./uploads
-
-databases:
-  - name: neondb
-    databaseName: neondb
-    ipAllowList: []
