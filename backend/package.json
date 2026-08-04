@@ -4,7 +4,7 @@
   "description": "Sistema de inventario para casa renta",
   "scripts": {
     "build": "nest build",
-    "build:prod": "tsc -p tsconfig.json",
+    "build:prod": "nest build && cp -r src dist/",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
