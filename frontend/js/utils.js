@@ -1,7 +1,22 @@
-// Desarrollo local: siempre usa backend en localhost:3000 a menos que window.API_BASE_URL se sobreescriba manualmente.
-const API_BASE_URL = (typeof window !== 'undefined' && window.API_BASE_URL)
-  ? window.API_BASE_URL
-  : 'http://localhost:3000/api';
+// Variables de entorno
+const IS_PRODUCTION = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && !window.location.hostname.startsWith('127.0.');
+
+// Desarrollo local: usa backend en localhost. En producción, el backend desplegado.
+const API_BASE_URL = (() => {
+    if (typeof window === 'undefined') {
+        // Entorno sin navegador (SSR, etc.) - puede requerir configuración adicional
+        return 'http://localhost:3000/api';
+    }
+    // Permitir sobreescribir con una variable global (útil para debugging)
+    if (window.API_BASE_URL) {
+        return window.API_BASE_URL;
+    }
+    // Elegir basado en el entorno (local vs producción)
+    return IS_PRODUCTION
+        ? 'https://inventario-backend-jvgr.onrender.com/api'
+        : 'http://localhost:3000/api';
+})();
+
 let currentUser = null;
 let currentPage = 1;
 

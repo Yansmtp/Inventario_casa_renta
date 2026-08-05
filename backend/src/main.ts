@@ -61,15 +61,52 @@ async function bootstrap() {
 
   const frontendUrl = configService.get('FRONTEND_URL');
 
+  // Orígenes extra configurables por entorno (separados por coma)
+  const extraOrigins = String(configService.get('ADDITIONAL_ORIGINS') || '')
+    .split(',')
+    .map(o => o.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
+  const allowedOrigins: Array<string | RegExp> = [
+    ...(frontendUrl ? [String(frontendUrl).trim().replace(/\/$/, '')] : []),
+    ...extraOrigins,
+    // Cualquier dominio de Vercel: producción, previews y despliegues por rama
+    /^https:\/\/([a-z0-9-]+\.)*vercel\.app$/i,
+  ];
+
+  if (process.env.NODE_ENV !== 'production') {
+    // Desarrollo: cualquier localhost/127.0.0.1 en cualquier puerto
+    allowedOrigins.push(/^https?:\/\/localhost(:\d+)?$/i);
+    allowedOrigins.push(/^https?:\/\/127\.0\.0\.1(:\d+)?$/i);
+  }
+
+  const isOriginAllowed = (origin?: string): boolean => {
+    if (!origin) return true; // Postman, apps móviles, curl, etc.
+    const normalized = origin.trim().replace(/\/$/, '');
+    return allowedOrigins.some(allowed =>
+      typeof allowed === 'string'
+        ? allowed.toLowerCase() === normalized.toLowerCase()
+        : allowed.test(normalized),
+    );
+  };
+
   app.enableCors({
-    origin: frontendUrl,
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        // Devolvemos el origen recibido (no un valor fijo) para que coincida siempre
+        return callback(null, true);
+      }
+      console.warn(`[CORS] Origen bloqueado: ${origin}`);
+      // No lanzamos error: simplemente no se envían cabeceras CORS (evita 500 en preflight)
+      return callback(null, false);
+    },
     credentials: true,
-    // Incluir HEAD y PATCH para que las peticiones preflight permitan métodos PATCH
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    // Añadir cabeceras comunes que pueden enviarse en peticiones CORS
     allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Authorization', 'Accept'],
+    exposedHeaders: ['Content-Disposition'],
     preflightContinue: false,
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 204,
+    maxAge: 86400,
   });
 
   // Validación global
@@ -85,9 +122,11 @@ async function bootstrap() {
   app.use('/uploads', (req, res, next) => {
     // Permitir uso cross-origin de recursos estáticos (para <img>, <link>, etc.)
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    // También permitir CORS en caso de que el navegador lo requiera para ciertas solicitudes
-    if (frontendUrl) {
-      res.setHeader('Access-Control-Allow-Origin', frontendUrl);
+    // Reflejar el origen solicitante si está permitido (nunca un valor fijo)
+    const requestOrigin = req.headers.origin as string | undefined;
+    if (requestOrigin && isOriginAllowed(requestOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
     next();

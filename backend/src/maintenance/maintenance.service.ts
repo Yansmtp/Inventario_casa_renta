@@ -82,7 +82,7 @@ export class MaintenanceService implements OnModuleInit, OnModuleDestroy {
       execFile(
         'powershell',
         ['-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args],
-        { windowsHide: true },
+        { windowsHide: true, shell: true },
         (error, stdout, stderr) => {
           if (error) {
             return reject(new InternalServerErrorException(stderr || error.message));

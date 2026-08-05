@@ -179,6 +179,20 @@ curl -X POST https://inventario-backend.onrender.com/api/auth/login \
 ### Error: CORS
 - Verifica que `FRONTEND_URL` en Render coincida exactamente con la URL de Vercel
 - Asegúrate de que no haya espacios extra en la variable
+- El backend acepta automáticamente **cualquier** dominio `*.vercel.app` (producción y previews)
+- Si usas un dominio personalizado en Vercel, agrégalo a `ADDITIONAL_ORIGINS` en Render:
+  ```
+  ADDITIONAL_ORIGINS=https://tudominio.com,https://preview.tudominio.com
+  ```
+- Para verificar manualmente que CORS está permitido:
+  ```bash
+  curl -X OPTIONS https://inventario-backend-jvgr.onrender.com/api/auth/login \
+    -H "Origin: https://inventario-casa-renta.vercel.app" \
+    -H "Access-Control-Request-Method: POST" \
+    -H "Access-Control-Request-Headers: content-type" \
+    -i
+  ```
+  La respuesta debe incluir `Access-Control-Allow-Origin: https://inventario-casa-renta.vercel.app`
 
 ### Error: "Module not found" en deploy
 - Verifica que `package.json` tenga todas las dependencias
